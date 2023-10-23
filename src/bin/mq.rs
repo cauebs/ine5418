@@ -1,6 +1,8 @@
-use distribuida::message_queue;
+use anyhow::Result;
+use distribuida::{message_queue::Server, Message};
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     env_logger::init();
-    message_queue::server::main()
+    Server::<Message>::new().run()?;
+    Ok(())
 }

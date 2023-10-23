@@ -1,38 +1,29 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::{fmt::Debug, net::IpAddr};
+use std::{fmt::Debug, net::IpAddr, hash::Hash};
 
-pub mod client;
-pub mod server;
+mod client;
+mod server;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub enum MessageKind {
-    Request,
-    Response,
+pub use client::Client;
+pub use server::Server;
+
+pub trait Message: Serialize + DeserializeOwned + Debug + Send + Sync {
+    type Tag: Serialize + DeserializeOwned + Clone + Debug + Send + PartialEq + Eq + Hash;
+    fn tag(&self) -> Self::Tag;
+    fn recipient(&self) -> Option<IpAddr>;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum MessageOp {
-    Send(Message),
-    Receive(MessageKind),
+pub enum MessageOp<M: Message> {
+    #[serde(bound = "M: Message")]
+    Send(M),
+    Receive(M::Tag),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Message {
-    Request {
-        prime_size: u32,
-    },
-    Response {
-        destination: IpAddr,
-        prime: Vec<u8>,
-    },
-}
-
-impl Message {
-    pub fn kind(&self) -> MessageKind {
-        match self {
-            Message::Request { .. } => MessageKind::Request,
-            Message::Response { .. } => MessageKind::Response,
-        }
-    }
+pub struct StampedMessage<M: Message> {
+    pub sender: IpAddr,
+    #[serde(bound = "M: Message")]
+    pub inner: M,
 }

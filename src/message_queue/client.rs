@@ -1,37 +1,35 @@
 use anyhow::Result;
 
-use super::{Message, MessageKind, MessageOp};
+use super::{Message, MessageOp, StampedMessage};
 
 use std::{
     io,
-    net::{SocketAddr, TcpStream},
+    net::{TcpStream, ToSocketAddrs},
 };
 
-pub struct Client {
-    server_addr: SocketAddr,
+pub struct Client<A: ToSocketAddrs> {
+    server_addr: A,
 }
 
-impl Client {
-    pub fn new(server_addr: impl Into<SocketAddr>) -> Self {
-        Self {
-            server_addr: server_addr.into(),
-        }
+impl<A: ToSocketAddrs> Client<A> {
+    pub fn new(server_addr: A) -> Self {
+        Self { server_addr }
     }
 
     fn connect(&self) -> io::Result<TcpStream> {
-        TcpStream::connect(self.server_addr)
+        TcpStream::connect(&self.server_addr)
     }
 
-    pub fn send_message(&self, message: Message) -> Result<()> {
+    pub fn send<M: Message>(&self, message: M) -> Result<()> {
         let server = self.connect()?;
         let contents = MessageOp::Send(message);
         bincode::serialize_into(&server, &contents)?;
         Ok(())
     }
 
-    pub fn receive_message(&self, kind: MessageKind) -> Result<Message> {
+    pub fn receive<M: Message>(&self, tag: M::Tag) -> Result<StampedMessage<M>> {
         let server = self.connect()?;
-        let contents = MessageOp::Receive(kind);
+        let contents: MessageOp<M> = MessageOp::Receive(tag);
         bincode::serialize_into(&server, &contents)?;
         let message = bincode::deserialize_from(&server)?;
         Ok(message)
