@@ -1,40 +1,43 @@
-use std::{
-    io::stdin,
-    net::ToSocketAddrs,
-};
+use std::io::stdin;
 
 use anyhow::Result;
+use log::{info,warn};
+
 use distribuida::{message_queue, Message, Tag};
 
-fn ask_prime(mq: message_queue::Client) -> Result<()> {
+fn ask_prime(mq: &message_queue::Client<String>) -> Result<()> {
     let request = Message::Request { prime_size: 42 };
-    println!("sending: {:?}", &request);
+    info!("sending: {:?}", &request);
     mq.send(request)?;
     Ok(())
 }
 
-fn get_prime(mq: message_queue::Client) -> Result<()> {
+fn get_prime(mq: &message_queue::Client<String>) -> Result<()> {
     let response = mq.receive::<Message>(Tag::Response)?;
-    println!("received: {:?}", &response);
+    info!("received: {:?}", &response);
     Ok(())
 }
 
 fn main() -> Result<()> {
-    let mq = message_queue::Client::new("127.0.0.1:8979");
+    env_logger::init();
+    let mq = message_queue::Client::new("127.0.0.1:8979".to_string());
 
-    println!("***Prime numbers client***");
+    info!("***Prime numbers client***");
     loop {
         let mut input = String::new();
-        stdin().read_line(&mut input);
+        let _ = stdin().read_line(&mut input);
         
-        match input.trim() {
+        let _ = match input.trim() {
             "ask" => ask_prime(&mq),
             "get" => get_prime(&mq),
             "exit" => break,
-            _ => (),
-        }
+            m => {
+                warn!("{} is not ah valid command", m);
+                Ok(())
+            },
+        };
     }
 
-    println!("***Client finished***");
+    info!("***Client finished***");
     Ok(())
 }
