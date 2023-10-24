@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use log::{warn, info};
 use std::{
     collections::{HashMap, VecDeque},
     net::{IpAddr, TcpListener, TcpStream},
@@ -42,7 +43,7 @@ impl<M: Message> Server<M> {
         log::debug!("<> Connected to {address}");
 
         let message_op: MessageOp<M> = bincode::deserialize_from(&client)?;
-        log::info!("<- Received from {address}: {message_op:?}");
+        info!("<- Received from {address}: {message_op:?}");
 
         match message_op {
             MessageOp::Send(message) => self.put_message(StampedMessage {
@@ -51,8 +52,14 @@ impl<M: Message> Server<M> {
             }),
             MessageOp::Receive(tag) => {
                 let message = self.get_message(&tag, address.ip());
-                bincode::serialize_into(&client, &message)?;
-                log::info!("-> Sent to {address}: {message:?}");
+                match bincode::serialize_into(&client, &message) {
+                    Err(e) => {
+                        warn!("Producer dead: {:?}", e);
+                        self.put_message(message);
+                        return Ok(());
+                    }
+                    Ok(_) => info!("-> Sent to {address}: {message:?}"),
+                }
             }
         }
 

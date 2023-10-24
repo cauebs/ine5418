@@ -12,11 +12,11 @@ pub enum Tag {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
-    Request { prime_size: u32 },
+    Request { prime_size: u64 },
     Response { recipient: IpAddr, prime: Vec<u8> },
 }
 
-impl<'a> message_queue::Message for Message {
+impl message_queue::Message for Message {
     type Tag = Tag;
 
     fn tag(&self) -> Self::Tag {

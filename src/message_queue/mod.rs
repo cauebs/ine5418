@@ -1,6 +1,6 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::{fmt::Debug, net::IpAddr, hash::Hash};
+use std::{fmt::Debug, hash::Hash, net::IpAddr};
 
 mod client;
 mod server;
