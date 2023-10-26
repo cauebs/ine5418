@@ -1,9 +1,9 @@
-use std::time::SystemTime;
-
-use distribuida::{message_queue, Message, Tag};
 use log::{error, info, warn};
 
+use distribuida::{message_queue, Message, Tag};
 use ine5429_primes::functions;
+
+use std::time::SystemTime;
 
 fn generate_prime(prime_size: u32) -> Vec<u8> {
     let seed = SystemTime::now()
@@ -18,12 +18,13 @@ fn main() {
     env_logger::init();
     info!("Producer initializing... ");
 
-    let mq = message_queue::Client::new(
-        std::env::args()
-            .skip(1)
-            .next()
-            .expect("Use: producer <host>:<port>"),
-    );
+    let server_addrs = std::env::args()
+        .skip(1)
+        .next()
+        .expect("Use: producer <host>:<port>");
+
+    let mq = message_queue::Client::new(server_addrs)
+        .expect("Failed to register to message queue server");
 
     loop {
         let request = mq.receive::<Message>(Tag::Request).unwrap();

@@ -1,13 +1,15 @@
 use anyhow::Result;
+
 use distribuida::{message_queue, Message, Tag};
 
 fn main() -> Result<()> {
-    let mq = message_queue::Client::new(
-        std::env::args()
-            .skip(1)
-            .next()
-            .expect("Use: consumer <host>:<port>"),
-    );
+    let server_addrs = std::env::args()
+        .skip(1)
+        .next()
+        .expect("Use: producer <host>:<port>");
+
+    let mq = message_queue::Client::new(server_addrs)
+        .expect("Failed to register to message queue server");
 
     let request = Message::Request { prime_size: 42 };
     println!("sending: {:?}", &request);

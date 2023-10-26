@@ -1,6 +1,5 @@
-use std::net::IpAddr;
-
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub mod message_queue;
 
@@ -13,7 +12,7 @@ pub enum Tag {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     Request { prime_size: u32 },
-    Response { recipient: IpAddr, prime: Vec<u8> },
+    Response { recipient: Uuid, prime: Vec<u8> },
 }
 
 impl message_queue::Message for Message {
@@ -26,7 +25,7 @@ impl message_queue::Message for Message {
         }
     }
 
-    fn recipient(&self) -> Option<IpAddr> {
+    fn recipient(&self) -> Option<Uuid> {
         match self {
             Message::Request { .. } => None,
             Message::Response { recipient, .. } => Some(*recipient),

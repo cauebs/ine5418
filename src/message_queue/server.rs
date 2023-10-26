@@ -1,16 +1,17 @@
 use anyhow::Result;
+use log::{info, warn};
+use uuid::Uuid;
 
-use log::{warn, info};
 use std::{
     collections::{HashMap, VecDeque},
-    net::{IpAddr, TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, ToSocketAddrs},
     sync::Mutex,
     thread::{self, Thread},
 };
 
-use super::{Message, MessageOp, StampedMessage};
+use super::{Message, Operation, StampedMessage};
 
-type Waitlist = VecDeque<(IpAddr, Thread)>;
+type Waitlist = VecDeque<(Uuid, Thread)>;
 
 #[derive(Default)]
 pub struct Server<M: Message> {
@@ -26,8 +27,8 @@ impl<M: Message> Server<M> {
         }
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        let server = TcpListener::bind("0.0.0.0:8979")?;
+    pub fn run<A: ToSocketAddrs>(&mut self, bind_addrs: A) -> Result<()> {
+        let server = TcpListener::bind(bind_addrs)?;
 
         thread::scope(|s| {
             for client in server.incoming() {
@@ -42,16 +43,20 @@ impl<M: Message> Server<M> {
         let address = client.peer_addr()?;
         log::debug!("<> Connected to {address}");
 
-        let message_op: MessageOp<M> = bincode::deserialize_from(&client)?;
-        info!("<- Received from {address}: {message_op:?}");
+        let operation: Operation<M> = bincode::deserialize_from(&client)?;
+        info!("<- Received from {address}: {operation:?}");
 
-        match message_op {
-            MessageOp::Send(message) => self.put_message(StampedMessage {
-                sender: address.ip(),
+        match operation {
+            Operation::Register => {
+                bincode::serialize_into(client, &Uuid::new_v4())?;
+            }
+
+            Operation::Send(client_id, message) => self.put_message(StampedMessage {
+                sender: client_id,
                 inner: message,
             }),
-            MessageOp::Receive(tag) => {
-                let message = self.get_message(&tag, address.ip());
+            Operation::Receive(client_id, tag) => {
+                let message = self.get_message(&tag, client_id);
                 match bincode::serialize_into(&client, &message) {
                     Err(e) => {
                         warn!("Producer dead: {:?}", e);
@@ -76,7 +81,7 @@ impl<M: Message> Server<M> {
         self.notify_next_in_waitlist(&tag, recipient);
     }
 
-    fn notify_next_in_waitlist(&self, tag: &M::Tag, recipient: Option<IpAddr>) {
+    fn notify_next_in_waitlist(&self, tag: &M::Tag, recipient: Option<Uuid>) {
         let mut waitlists = self.waitlists.lock().unwrap();
         let Some(waitlist_for_tag) = waitlists.get_mut(tag) else {
             return;
@@ -95,11 +100,11 @@ impl<M: Message> Server<M> {
         }
     }
 
-    fn try_get_message(&self, tag: &M::Tag, client: IpAddr) -> Option<StampedMessage<M>> {
+    fn try_get_message(&self, tag: &M::Tag, client_id: Uuid) -> Option<StampedMessage<M>> {
         let mut messages = self.messages.lock().unwrap();
         let first_matching_tag_and_recipient = messages
             .iter()
-            .position(|m| m.inner.tag() == *tag && m.inner.recipient() == Some(client));
+            .position(|m| m.inner.tag() == *tag && m.inner.recipient() == Some(client_id));
 
         let mut index = first_matching_tag_and_recipient;
 
@@ -111,21 +116,21 @@ impl<M: Message> Server<M> {
         index.and_then(|i| messages.remove(i))
     }
 
-    fn get_message(&self, tag: &M::Tag, client: IpAddr) -> StampedMessage<M> {
+    fn get_message(&self, tag: &M::Tag, client_id: Uuid) -> StampedMessage<M> {
         loop {
-            if let Some(message) = self.try_get_message(tag, client) {
+            if let Some(message) = self.try_get_message(tag, client_id) {
                 return message;
             }
 
-            self.join_waitlist(tag, client);
+            self.join_waitlist(tag, client_id);
         }
     }
 
-    fn join_waitlist(&self, tag: &M::Tag, client: IpAddr) {
+    fn join_waitlist(&self, tag: &M::Tag, client_id: Uuid) {
         {
             let mut waitlists = self.waitlists.lock().unwrap();
             let waitlist_for_tag = waitlists.entry(tag.clone()).or_default();
-            waitlist_for_tag.push_back((client, thread::current()));
+            waitlist_for_tag.push_back((client_id, thread::current()));
         }
 
         thread::park();
