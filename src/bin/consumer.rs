@@ -2,7 +2,12 @@ use anyhow::Result;
 use distribuida::{message_queue, Message, Tag};
 
 fn main() -> Result<()> {
-    let mq = message_queue::Client::new("127.0.0.1:8979");
+    let mq = message_queue::Client::new(
+        std::env::args()
+            .skip(1)
+            .next()
+            .expect("Use: consumer <host>:<port>"),
+    );
 
     let request = Message::Request { prime_size: 42 };
     println!("sending: {:?}", &request);

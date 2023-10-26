@@ -12,7 +12,7 @@ pub enum Tag {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
-    Request { prime_size: u64 },
+    Request { prime_size: u32 },
     Response { recipient: IpAddr, prime: Vec<u8> },
 }
 
