@@ -4,20 +4,22 @@ use super::{Message, MessageOp, StampedMessage};
 
 use std::{
     io,
-    net::{TcpStream, ToSocketAddrs},
+    net::{SocketAddr, TcpStream, ToSocketAddrs},
 };
 
-pub struct Client<A: ToSocketAddrs> {
-    server_addr: A,
+pub struct Client {
+    server_addrs: Vec<SocketAddr>,
 }
 
-impl<A: ToSocketAddrs> Client<A> {
-    pub fn new(server_addr: A) -> Self {
-        Self { server_addr }
+impl Client {
+    pub fn new<A: ToSocketAddrs>(server_addrs: A) -> Self {
+        Self {
+            server_addrs: server_addrs.to_socket_addrs().unwrap().collect(),
+        }
     }
 
     fn connect(&self) -> io::Result<TcpStream> {
-        TcpStream::connect(&self.server_addr)
+        TcpStream::connect(self.server_addrs.as_slice())
     }
 
     pub fn send<M: Message>(&self, message: M) -> Result<()> {
