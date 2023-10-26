@@ -1,22 +1,22 @@
 # INE 5418 - Trabalho 1
 
 ## Message queue:
-To run the message queue: 
+To run the message queue:
 
 ```
-cargo run --bin mq
+cargo run --bin mq <bind_addr>:<port>
 ```
 
 ## Producer:
 To run the producer:
 
 ```
-cargo run --bin producer
+cargo run --bin producer <mq_addr>:<mq_port>
 ```
 
 ## Consumer:
 To run the consumer:
 
 ```
-cargo run --bin consumer
+cargo run --bin consumer <mq_addr>:<mq_port>
 ```

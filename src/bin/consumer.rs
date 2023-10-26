@@ -6,7 +6,7 @@ fn main() -> Result<()> {
     let server_addrs = std::env::args()
         .skip(1)
         .next()
-        .expect("Use: producer <host>:<port>");
+        .expect("Use: producer <mq_addr>:<mq_port>");
 
     let mq = message_queue::Client::new(server_addrs)
         .expect("Failed to register to message queue server");
