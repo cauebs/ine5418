@@ -104,6 +104,7 @@ dependencies = [
  "env_logger 0.10.0",
  "ine5429-primes",
  "log",
+ "num-bigint",
  "serde",
  "serde_json",
  "thiserror",

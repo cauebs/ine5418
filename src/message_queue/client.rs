@@ -8,7 +8,7 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 
 pub struct Client {
     server_addrs: Vec<SocketAddr>,
-    id: Uuid,
+    pub id: Uuid,
 }
 
 fn register(server_addrs: &[SocketAddr]) -> Result<Uuid> {

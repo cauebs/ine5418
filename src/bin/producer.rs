@@ -1,5 +1,6 @@
-use distribuida::{message_queue, Message, Tag};
 use ine5429_primes::functions;
+
+use distribuida::{message_queue, Message, Tag};
 
 use std::time::SystemTime;
 
@@ -28,12 +29,9 @@ fn main() {
         let request = mq.receive::<Message>(Tag::Request).unwrap();
         log::info!("Received message: {:?}", &request);
 
-        let prime_size = match request.inner {
-            Message::Request { prime_size: v } => v,
-            Message::Response { .. } => {
-                log::error!("Asked for a Request, but got a Response");
-                continue;
-            }
+        let Message::Request { prime_size } = request.inner else {
+            log::error!("Asked for a Request, but got a Response!");
+            continue;
         };
 
         let prime = generate_prime(prime_size);
