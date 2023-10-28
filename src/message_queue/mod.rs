@@ -1,4 +1,5 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
 use std::{fmt::Debug, hash::Hash};
@@ -28,12 +29,17 @@ impl Message for () {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Operation<M: Message> {
+pub enum Operation<M: Message = ()> {
     Register,
     #[serde(bound = "M: Message")]
     Send(Uuid, M),
     Receive(Uuid, M::Tag),
 }
+
+#[derive(Serialize, Deserialize, Debug, Error)]
+pub enum OperationError {}
+
+pub type OperationResult<T> = Result<T, OperationError>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StampedMessage<M: Message> {

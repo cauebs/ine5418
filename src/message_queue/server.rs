@@ -1,15 +1,15 @@
 use anyhow::Result;
-use log::{info, warn};
 use uuid::Uuid;
 
 use std::{
     collections::{HashMap, VecDeque},
+    io,
     net::{TcpListener, TcpStream, ToSocketAddrs},
     sync::Mutex,
     thread::{self, Thread},
 };
 
-use super::{Message, Operation, StampedMessage};
+use super::{Message, Operation, OperationResult, StampedMessage};
 
 type Waitlist = VecDeque<(Uuid, Thread)>;
 
@@ -28,42 +28,60 @@ impl<M: Message> Server<M> {
     }
 
     pub fn run<A: ToSocketAddrs>(&mut self, bind_addrs: A) -> Result<()> {
-        let server = TcpListener::bind(bind_addrs)?;
+        let server = TcpListener::bind(&bind_addrs)?;
+        log::info!("Message queue server listening at {}", server.local_addr()?);
 
         thread::scope(|s| {
             for client in server.incoming() {
-                s.spawn(|| self.handle_client(client?));
+                s.spawn(|| {
+                    self.handle_client(client)
+                        .map_err(|e| log::error!(">< Error while handling client connection: {e}"))
+                });
             }
         });
 
         Ok(())
     }
 
-    fn handle_client(&self, client: TcpStream) -> Result<()> {
+    fn handle_client(&self, client: io::Result<TcpStream>) -> Result<()> {
+        let client = client.map_err(|e| {
+            log::error!("!! Failed to connect to client: {e}");
+            e
+        })?;
+
         let address = client.peer_addr()?;
         log::debug!("<> Connected to {address}");
 
-        let operation: Operation<M> = bincode::deserialize_from(&client)?;
-        info!("<- Received from {address}: {operation:?}");
+        let operation = bincode::deserialize_from(&client)?;
+        log::info!("<- Received from {address}: {operation:?}");
 
         match operation {
             Operation::Register => {
-                bincode::serialize_into(client, &Uuid::new_v4())?;
+                let id = Uuid::new_v4();
+                let result = OperationResult::Ok(id);
+                bincode::serialize_into(client, &result)?;
+                log::info!("-> Sent to {address}: {result:?}");
             }
 
-            Operation::Send(client_id, message) => self.put_message(StampedMessage {
-                sender: client_id,
-                inner: message,
-            }),
+            Operation::Send(client_id, message) => {
+                self.put_message(StampedMessage {
+                    sender: client_id,
+                    inner: message,
+                });
+                let result = OperationResult::Ok(());
+                bincode::serialize_into(client, &result)?;
+                log::info!("-> Sent to {address}: {result:?}");
+            }
             Operation::Receive(client_id, tag) => {
                 let message = self.get_message(&tag, client_id);
-                match bincode::serialize_into(&client, &message) {
-                    Err(e) => {
-                        warn!("Producer dead: {:?}", e);
+                let result = OperationResult::Ok(&message);
+                match bincode::serialize_into(&client, &result) {
+                    Err(_) => {
+                        log::warn!(">< Client disconnected while waiting for message: {address}");
                         self.put_message(message);
                         return Ok(());
                     }
-                    Ok(_) => info!("-> Sent to {address}: {message:?}"),
+                    Ok(_) => log::info!("-> Sent to {address}: {result:?}"),
                 }
             }
         }

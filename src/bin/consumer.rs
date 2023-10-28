@@ -8,7 +8,7 @@ fn main() -> Result<()> {
         .next()
         .expect("Use: producer <mq_addr>:<mq_port>");
 
-    let mq = message_queue::Client::new(server_addrs)
+    let mq = message_queue::Client::register(server_addrs)
         .expect("Failed to register to message queue server");
 
     let request = Message::Request { prime_size: 42 };
