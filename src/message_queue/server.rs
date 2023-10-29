@@ -9,6 +9,8 @@ use std::{
     thread::{self, Thread},
 };
 
+use crate::message_queue::OperationError;
+
 use super::{Message, Operation, OperationResult, StampedMessage};
 
 type Waitlist = VecDeque<(Uuid, Thread)>;
@@ -17,6 +19,7 @@ type Waitlist = VecDeque<(Uuid, Thread)>;
 pub struct Server<M: Message> {
     messages: Mutex<VecDeque<StampedMessage<M>>>,
     waitlists: Mutex<HashMap<M::Tag, Waitlist>>,
+    max_queued_per_client: Option<usize>,
 }
 
 impl<M: Message> Server<M> {
@@ -24,6 +27,14 @@ impl<M: Message> Server<M> {
         Self {
             messages: Mutex::new(VecDeque::new()),
             waitlists: Mutex::new(HashMap::new()),
+            max_queued_per_client: None,
+        }
+    }
+
+    pub fn with_throttling(self, max_queued_per_client: Option<usize>) -> Self {
+        Self {
+            max_queued_per_client,
+            ..self
         }
     }
 
@@ -64,11 +75,16 @@ impl<M: Message> Server<M> {
             }
 
             Operation::Send(client_id, message) => {
-                self.put_message(StampedMessage {
-                    sender: client_id,
-                    inner: message,
-                });
-                let result = OperationResult::Ok(());
+                let result = if self.should_throttling(client_id) {
+                    Err(OperationError::TooManyMessages)
+                } else {
+                    self.put_message(StampedMessage {
+                        sender: client_id,
+                        inner: message,
+                    });
+                    Ok(())
+                };
+
                 bincode::serialize_into(client, &result)?;
                 log::info!("-> Sent to {address}: {result:?}");
             }
@@ -88,6 +104,23 @@ impl<M: Message> Server<M> {
 
         log::debug!(">< Disconnected from {address}");
         Ok(())
+    }
+
+    fn count_messages_from(&self, sender: Uuid) -> usize {
+        self.messages
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|message| message.sender == sender)
+            .count()
+    }
+
+    fn should_throttling(&self, client_id: Uuid) -> bool {
+        let Some(max) = self.max_queued_per_client else {
+            return false;
+        };
+
+        self.count_messages_from(client_id) >= max
     }
 
     fn put_message(&self, message: StampedMessage<M>) {
@@ -118,11 +151,11 @@ impl<M: Message> Server<M> {
         }
     }
 
-    fn try_get_message(&self, tag: &M::Tag, client_id: Uuid) -> Option<StampedMessage<M>> {
+    fn try_get_message(&self, tag: &M::Tag, recipient: Uuid) -> Option<StampedMessage<M>> {
         let mut messages = self.messages.lock().unwrap();
         let first_matching_tag_and_recipient = messages
             .iter()
-            .position(|m| m.inner.tag() == *tag && m.inner.recipient() == Some(client_id));
+            .position(|m| m.inner.tag() == *tag && m.inner.recipient() == Some(recipient));
 
         let mut index = first_matching_tag_and_recipient;
 
@@ -134,21 +167,21 @@ impl<M: Message> Server<M> {
         index.and_then(|i| messages.remove(i))
     }
 
-    fn get_message(&self, tag: &M::Tag, client_id: Uuid) -> StampedMessage<M> {
+    fn get_message(&self, tag: &M::Tag, recipient: Uuid) -> StampedMessage<M> {
         loop {
-            if let Some(message) = self.try_get_message(tag, client_id) {
+            if let Some(message) = self.try_get_message(tag, recipient) {
                 return message;
             }
 
-            self.join_waitlist(tag, client_id);
+            self.join_waitlist(tag, recipient);
         }
     }
 
-    fn join_waitlist(&self, tag: &M::Tag, client_id: Uuid) {
+    fn join_waitlist(&self, tag: &M::Tag, recipient: Uuid) {
         {
             let mut waitlists = self.waitlists.lock().unwrap();
             let waitlist_for_tag = waitlists.entry(tag.clone()).or_default();
-            waitlist_for_tag.push_back((client_id, thread::current()));
+            waitlist_for_tag.push_back((recipient, thread::current()));
         }
 
         thread::park();

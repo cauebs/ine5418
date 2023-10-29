@@ -4,7 +4,7 @@
 To run the message queue:
 
 ```
-cargo run --bin mq <bind_addr>:<port>
+cargo run --bin mq <bind_addr>:<port> [max-queued-per-client]
 ```
 
 ## Producer:

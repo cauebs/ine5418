@@ -37,7 +37,10 @@ pub enum Operation<M: Message = ()> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Error)]
-pub enum OperationError {}
+pub enum OperationError {
+    #[error("Too many messages from the same client in the queue. Try again later.")]
+    TooManyMessages,
+}
 
 pub type OperationResult<T> = Result<T, OperationError>;
 

@@ -13,10 +13,10 @@ fn print_prompt() -> io::Result<()> {
 fn ask_prime(mq: &message_queue::Client, prime_size: u32) {
     let request = Message::Request { prime_size };
     log::debug!("sending: {:?}", &request);
-    let Ok(_) = mq.send(request) else {
-        println!("Error while sending request. Try again.");
-        return;
-    };
+    match mq.send(request) {
+        Ok(_) => {}
+        Err(e) => println!("Error while sending request: {e}"),
+    }
 }
 
 fn get_prime(mq: &message_queue::Client) {
