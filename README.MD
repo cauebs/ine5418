@@ -22,7 +22,7 @@ cargo run --bin consumer <mq_addr>:<mq_port>
 ```
 
 ## Webserver:
-To run the wesserver:
+To run the webserver:
 
 ```
 cargo run --bin ws <ws_addr>:<ws_port> <mq_addr>:<mq_port>

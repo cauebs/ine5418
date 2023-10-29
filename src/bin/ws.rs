@@ -27,6 +27,10 @@ pub async fn main() {
 async fn root(Path(psize): Path<u32>) ->  String {
     info!("Handling request for {} sized prime", psize);
 
+    if psize <= 2 || psize >= 32000 {
+        return "Please enter a value between 2 and 32000, exclusive".to_string()
+    }
+
     let mut args = std::env::args().skip(2);
 
     let addrs = args
