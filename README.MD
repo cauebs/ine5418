@@ -20,3 +20,10 @@ To run the consumer:
 ```
 cargo run --bin consumer <mq_addr>:<mq_port>
 ```
+
+## Webserver:
+To run the wesserver:
+
+```
+cargo run --bin ws <ws_addr>:<ws_port> <mq_addr>:<mq_port>
+```
