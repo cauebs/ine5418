@@ -1,6 +1,6 @@
 use ine5429_primes::functions;
 
-use distribuida::{message_queue, Message, Tag};
+use distribuida::{message_queue, PrimesMessage, PrimesTag};
 
 use std::{net::ToSocketAddrs, thread, time::SystemTime};
 
@@ -22,19 +22,19 @@ fn run_producer<A: ToSocketAddrs>(server_addrs: A) {
 
     loop {
         let request = mq
-            .receive::<Message>(Tag::Request)
+            .receive::<PrimesMessage>(PrimesTag::Request)
             .map_err(|e| log::error!("[{tid:?}] Failed to receive request: {e:?}"))
             .unwrap();
         log::info!("[{tid:?}] Received message: {:?}", &request);
 
-        let Message::Request { prime_size } = request.inner else {
+        let PrimesMessage::Request { prime_size } = request.inner else {
             log::error!("[{tid:?}] Asked for a Request, but got a Response!");
             continue;
         };
 
         let prime = generate_prime(prime_size);
 
-        let response = Message::Response {
+        let response = PrimesMessage::Response {
             recipient: request.sender,
             prime,
         };

@@ -6,31 +6,31 @@ pub mod message_queue;
 pub use exponential_backoff::ExponentialBackoff;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Tag {
+pub enum PrimesTag {
     Request,
     Response,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Message {
+pub enum PrimesMessage {
     Request { prime_size: u32 },
     Response { recipient: Uuid, prime: Vec<u8> },
 }
 
-impl message_queue::Message for Message {
-    type Tag = Tag;
+impl message_queue::Message for PrimesMessage {
+    type Tag = PrimesTag;
 
     fn tag(&self) -> Self::Tag {
         match self {
-            Message::Request { .. } => Tag::Request,
-            Message::Response { .. } => Tag::Response,
+            PrimesMessage::Request { .. } => PrimesTag::Request,
+            PrimesMessage::Response { .. } => PrimesTag::Response,
         }
     }
 
     fn recipient(&self) -> Option<Uuid> {
         match self {
-            Message::Request { .. } => None,
-            Message::Response { recipient, .. } => Some(*recipient),
+            PrimesMessage::Request { .. } => None,
+            PrimesMessage::Response { recipient, .. } => Some(*recipient),
         }
     }
 }

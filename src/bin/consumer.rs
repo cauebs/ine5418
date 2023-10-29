@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use distribuida::{message_queue, Message, Tag};
+use distribuida::{message_queue, PrimesMessage, PrimesTag};
 use num_bigint::BigUint;
 
 use std::io::{self, stdin, stdout, Write};
@@ -11,7 +11,7 @@ fn print_prompt() -> io::Result<()> {
 }
 
 fn ask_prime(mq: &message_queue::Client, prime_size: u32) {
-    let request = Message::Request { prime_size };
+    let request = PrimesMessage::Request { prime_size };
     log::debug!("sending: {:?}", &request);
     match mq.send_with_retry(request) {
         Ok(_) => {}
@@ -20,14 +20,14 @@ fn ask_prime(mq: &message_queue::Client, prime_size: u32) {
 }
 
 fn get_prime(mq: &message_queue::Client) {
-    let Ok(response) = mq.receive::<Message>(Tag::Response) else {
+    let Ok(response) = mq.receive::<PrimesMessage>(PrimesTag::Response) else {
         println!("Error while receiving response. Try again.");
         return;
     };
 
     log::debug!("received: {:?}", &response);
 
-    let Message::Response { prime, .. } = response.inner else {
+    let PrimesMessage::Response { prime, .. } = response.inner else {
         println!("Asked for a Response, but got a Request!");
         return;
     };

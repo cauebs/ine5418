@@ -1,5 +1,5 @@
 use anyhow::Result;
-use distribuida::{message_queue::Server, Message};
+use distribuida::{message_queue::Server, PrimesMessage};
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -14,7 +14,7 @@ fn main() -> Result<()> {
             .expect("Expected max-queued-per-client to be a number")
     });
 
-    Server::<Message>::new()
+    Server::<PrimesMessage>::new()
         .with_throttling(max_queued_per_client)
         .run(addrs)?;
 
