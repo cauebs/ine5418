@@ -19,9 +19,7 @@ pub trait Message: Serialize + DeserializeOwned + Debug + Send + Sync {
 impl Message for () {
     type Tag = ();
 
-    fn tag(&self) -> Self::Tag {
-        ()
-    }
+    fn tag(&self) -> Self::Tag {}
 
     fn recipient(&self) -> Option<Uuid> {
         None

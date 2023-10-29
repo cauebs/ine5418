@@ -13,7 +13,7 @@ fn print_prompt() -> io::Result<()> {
 fn ask_prime(mq: &message_queue::Client, prime_size: u32) {
     let request = Message::Request { prime_size };
     log::debug!("sending: {:?}", &request);
-    match mq.send(request) {
+    match mq.send_with_retry(request) {
         Ok(_) => {}
         Err(e) => println!("Error while sending request: {e}"),
     }
@@ -37,8 +37,7 @@ fn get_prime(mq: &message_queue::Client) {
 
 fn main() -> Result<()> {
     let server_addrs = std::env::args()
-        .skip(1)
-        .next()
+        .nth(1)
         .expect("Use: consumer <mq_addr>:<mq_port>");
 
     env_logger::init();
