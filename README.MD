@@ -1,29 +1,33 @@
 # INE 5418 - Trabalho 1
+Formado pelos alunos:
+  - André William Régis
+  - Cauê Baasch de Souza 
+  - Matheus Roque
 
 ## Message queue:
-To run the message queue:
+Para rodar a fila de mensagens:
 
 ```
-cargo run --bin mq <bind_addr>:<port> [max-queued-per-client]
+[RUST_LOG=debug] cargo run --bin mq <bind_addr>:<port> [max-queued-per-client]
 ```
 
 ## Producer:
-To run the producer:
+Para rodar o produtor de números primos:
 
 ```
-cargo run --bin producer <mq_addr>:<mq_port>
+[RUST_LOG=debug] cargo run --bin producer <mq_addr>:<mq_port>
 ```
 
 ## Consumer:
-To run the consumer:
+Para rodar o consumidor de números primos:
 
 ```
-cargo run --bin consumer <mq_addr>:<mq_port>
+[RUST_LOG=debug] cargo run --bin consumer <mq_addr>:<mq_port>
 ```
 
 ## Webserver:
-To run the webserver:
+Para rodar o servidor web:
 
 ```
-cargo run --bin ws <ws_addr>:<ws_port> <mq_addr>:<mq_port>
+[RUST_LOG=debug] cargo run --bin ws <ws_addr>:<ws_port> <mq_addr>:<mq_port>
 ```
