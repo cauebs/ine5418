@@ -10,16 +10,24 @@ fn print_prompt() -> io::Result<()> {
     stdout().flush()
 }
 
-fn ask_prime(mq: &message_queue::Client, prime_size: u32) {
+fn ask_prime(mq: &message_queue::Client, prime_size: u32, pending_request_cont: &mut i32) {
     let request = PrimesMessage::Request { prime_size };
     log::debug!("sending: {:?}", &request);
     match mq.send_with_retry(request) {
-        Ok(_) => {}
+        Ok(_) => {
+            *pending_request_cont += 1;
+        },
         Err(e) => println!("Error while sending request: {e}"),
     }
 }
 
-fn get_prime(mq: &message_queue::Client) {
+fn get_prime(mq: &message_queue::Client, pending_request_cont: &mut i32) {
+    if *pending_request_cont < 1 {
+        println!("No pending prime request.");
+        return;
+    }
+    *pending_request_cont -= 1;
+
     let Ok(response) = mq.receive::<PrimesMessage>(PrimesTag::Response) else {
         println!("Error while receiving response. Try again.");
         return;
@@ -48,6 +56,7 @@ fn main() -> Result<()> {
     log::info!("Connected to message queue server with id={}", mq.id);
     println!("Use commands 'ask <prime-size>', 'get' and 'exit'");
 
+    let mut pending_request_cont = 0;
     print_prompt()?;
     for line in stdin().lines() {
         let line = line?;
@@ -60,9 +69,9 @@ fn main() -> Result<()> {
                     print_prompt()?;
                     continue;
                 };
-                ask_prime(&mq, size);
+                ask_prime(&mq, size, &mut pending_request_cont);
             }
-            Some(("get", "")) => get_prime(&mq),
+            Some(("get", "")) => get_prime(&mq, &mut pending_request_cont),
             Some(("exit", "")) => break,
             _ => println!("{command} is not a valid command"),
         }
