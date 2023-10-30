@@ -3,7 +3,7 @@ use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use super::{Message, Operation, OperationResult, StampedMessage};
-use crate::ExponentialBackoff;
+use crate::utils::{self, ExponentialBackoff};
 
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 
@@ -33,8 +33,8 @@ impl Client {
     }
 
     fn execute_operation<M: Message, R: DeserializeOwned>(&self, op: &Operation<M>) -> Result<R> {
-        let server = TcpStream::connect(self.server_addrs.as_slice())?;
-        bincode::serialize_into(&server, &op)?;
+        let mut server = TcpStream::connect(self.server_addrs.as_slice())?;
+        utils::serialize_into_and_flush(&mut server, op)?;
 
         let result: OperationResult<R> = bincode::deserialize_from(&server)?;
         Ok(result?)

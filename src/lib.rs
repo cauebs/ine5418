@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub mod exponential_backoff;
 pub mod message_queue;
-pub use exponential_backoff::ExponentialBackoff;
+pub mod utils;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PrimesTag {

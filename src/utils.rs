@@ -1,4 +1,13 @@
-use std::{thread, time::Duration};
+use std::{io::Write, thread, time::Duration};
+
+use anyhow::Result;
+use serde::Serialize;
+
+pub fn serialize_into_and_flush<W: Write, T: Serialize>(conn: &mut W, contents: &T) -> Result<()> {
+    bincode::serialize_into(conn.by_ref(), contents)?;
+    conn.flush()?;
+    Ok(())
+}
 
 pub struct ExponentialBackoff {
     initial_wait: Duration,

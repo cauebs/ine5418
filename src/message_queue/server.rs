@@ -9,9 +9,9 @@ use std::{
     thread::{self, Thread},
 };
 
-use crate::message_queue::OperationError;
+use crate::utils;
 
-use super::{Message, Operation, OperationResult, StampedMessage};
+use super::{Message, Operation, OperationError, OperationResult, StampedMessage};
 
 type Waitlist = VecDeque<(Uuid, Thread)>;
 
@@ -55,7 +55,7 @@ impl<M: Message> Server<M> {
     }
 
     fn handle_client(&self, client: io::Result<TcpStream>) -> Result<()> {
-        let client = client.map_err(|e| {
+        let mut client = client.map_err(|e| {
             log::error!("!! Failed to connect to client: {e}");
             e
         })?;
@@ -70,12 +70,12 @@ impl<M: Message> Server<M> {
             Operation::Register => {
                 let id = Uuid::new_v4();
                 let result = OperationResult::Ok(id);
-                bincode::serialize_into(client, &result)?;
+                utils::serialize_into_and_flush(&mut client, &result)?;
                 log::info!("-> Sent to {address}: {result:?}");
             }
 
             Operation::Send(client_id, message) => {
-                let result = if self.should_throttling(client_id) {
+                let result = if self.should_throttle(client_id) {
                     Err(OperationError::TooManyMessages)
                 } else {
                     self.put_message(StampedMessage {
@@ -85,19 +85,20 @@ impl<M: Message> Server<M> {
                     Ok(())
                 };
 
-                bincode::serialize_into(client, &result)?;
-                log::info!("-> Sent to {address}: {result:?}");
+                utils::serialize_into_and_flush(&mut client, &result)?;
+                log::info!("-> Sent to {client_id}: {result:?}");
             }
+
             Operation::Receive(client_id, tag) => {
                 let message = self.get_message(&tag, client_id);
                 let result = OperationResult::Ok(&message);
-                match bincode::serialize_into(&client, &result) {
+                match utils::serialize_into_and_flush(&mut client, &result) {
                     Err(_) => {
                         log::warn!(">< Client disconnected while waiting for message: {address}");
                         self.put_message(message);
                         return Ok(());
                     }
-                    Ok(_) => log::info!("-> Sent to {address}: {result:?}"),
+                    Ok(_) => log::info!("-> Sent to {client_id}: {result:?}"),
                 }
             }
         }
@@ -115,7 +116,7 @@ impl<M: Message> Server<M> {
             .count()
     }
 
-    fn should_throttling(&self, client_id: Uuid) -> bool {
+    fn should_throttle(&self, client_id: Uuid) -> bool {
         let Some(max) = self.max_queued_per_client else {
             return false;
         };
