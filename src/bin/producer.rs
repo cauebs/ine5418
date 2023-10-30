@@ -1,16 +1,22 @@
 use ine5429_primes::functions;
 
 use distribuida::{message_queue, PrimesMessage, PrimesTag};
+use num_bigint::BigUint;
+use num_bigint::ToBigUint;
 
 use std::{net::ToSocketAddrs, thread, time::SystemTime};
 
-fn generate_prime(prime_size: u32) -> Vec<u8> {
+fn generate_prime(prime_size: u32) -> BigUint {
     let seed = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_micros();
 
-    functions::find_fermat(u64::from(prime_size), &seed.into()).to_bytes_le()
+    if prime_size < 16 {
+        ToBigUint::to_biguint(&0).unwrap()
+    } else {
+        functions::find_fermat(u64::from(prime_size), &seed.into())
+    }
 }
 
 fn run_producer<A: ToSocketAddrs>(server_addrs: A) {
@@ -33,6 +39,7 @@ fn run_producer<A: ToSocketAddrs>(server_addrs: A) {
         };
 
         let prime = generate_prime(prime_size);
+        let prime: Vec<u8> = prime.to_bytes_le();
 
         let response = PrimesMessage::Response {
             recipient: request.sender,
