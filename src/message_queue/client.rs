@@ -49,7 +49,6 @@ impl Client {
         let op = Operation::Send(self.id, message);
 
         for wait_duration in ExponentialBackoff::default() {
-            println!("{wait_duration:?}");
             let op_result = self.execute_operation(&op);
             if op_result.is_ok() {
                 return op_result;
